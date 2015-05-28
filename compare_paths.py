@@ -1,5 +1,6 @@
 __author__ = 'Davide'
 
+import argparse
 import pathlib
 import zlib
 import sys
@@ -42,14 +43,14 @@ def compute_crc32(fp):
     return h
 
 
-def equals_files(p1_d, p2_d):
+def equals_files(p1_d, p2_d, use_modification_date):
     stat1 = p1_d.stat()
     stat2 = p2_d.stat()
 
     if stat1.st_size != stat2.st_size:
         return False, ModReason.DIFF_SIZE
 
-    if stat1.st_mtime == stat2.st_mtime:
+    if use_modification_date and stat1.st_mtime == stat2.st_mtime:
         return True, ModReason.SAME
 
     with p1_d.open("rb") as f1:
@@ -62,7 +63,7 @@ def equals_files(p1_d, p2_d):
         return False, ModReason.DIFF_CRC
 
 
-def search(p1, p2, verbose=False):
+def search(p1, p2, use_modification_date, verbose=False):
     if verbose:
         print("Matching", p1, "with", p2)
     c1 = set(d.relative_to(p1) for d in p1.iterdir())
@@ -76,11 +77,11 @@ def search(p1, p2, verbose=False):
         p2_d = p2 / d
 
         if p1_d.is_dir() and p2_d.is_dir():
-            res = search(p1_d, p2_d, verbose)
+            res = search(p1_d, p2_d, use_modification_date, verbose)
             cur_res.update(res)
 
         elif p1_d.is_file() and p2_d.is_file():
-            b, reason = equals_files(p1_d, p2_d)
+            b, reason = equals_files(p1_d, p2_d, use_modification_date)
             if not b:
                 cur_res.modified.add((p1_d, reason))
 
@@ -92,13 +93,21 @@ def search(p1, p2, verbose=False):
 
     return cur_res
 
+def parseArgs():
+    parser = argparse.ArgumentParser(description='Folder comparer.')
+    parser.add_argument('path_from', type=str, help='src folder')
+    parser.add_argument('path_to', type=str, help='dst folder')
+    parser.add_argument('-m', '--modified', dest='use_date',
+                        action='store_const', default=False, const=True,
+                        help='use the modification date')
+    res = parser.parse_args(sys.argv[1:])
+    return res
 
 def main():
-    FROM, TO = sys.argv[1:]
-    # TO = r"C:\Users\Davide\Music"
-    # FROM = r"G:\Musica"
-
-    res = search(pathlib.Path(FROM).resolve(), pathlib.Path(TO).resolve())
+    args = parseArgs()
+    res = search(pathlib.Path(args.path_from).resolve(),
+                 pathlib.Path(args.path_to).resolve(),
+                 use_modification_date=args.use_date)
     for x in sorted(res.added):
         print("+", x)
     for x in sorted(res.removed):
