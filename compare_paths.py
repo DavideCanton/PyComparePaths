@@ -1,10 +1,10 @@
-__author__ = 'Davide'
-
 import argparse
 import pathlib
 import zlib
 import sys
-from enum import Enum
+import enum
+
+__author__ = 'Davide'
 
 
 class Res:
@@ -24,7 +24,7 @@ class Res:
         self.file2dir |= r.file2dir
 
 
-class ModReason(Enum):
+class ModReason(enum.Enum):
     SAME = 0
     DIFF_SIZE = 1
     DIFF_CRC = 2
@@ -93,6 +93,7 @@ def search(p1, p2, use_modification_date, verbose=False):
 
     return cur_res
 
+
 def parseArgs():
     parser = argparse.ArgumentParser(description='Folder comparer.')
     parser.add_argument('path_from', type=str, help='src folder')
@@ -103,21 +104,23 @@ def parseArgs():
     res = parser.parse_args(sys.argv[1:])
     return res
 
+
 def main():
     args = parseArgs()
-    res = search(pathlib.Path(args.path_from).resolve(),
-                 pathlib.Path(args.path_to).resolve(),
+    path_from = pathlib.Path(args.path_from).resolve()
+    path_to = pathlib.Path(args.path_to).resolve()
+    res = search(path_from, path_to,
                  use_modification_date=args.use_date)
     for x in sorted(res.added):
-        print("+", x)
+        print("+", x.relative_to(path_to))
     for x in sorted(res.removed):
-        print("-", x)
+        print("-", x.relative_to(path_from))
     for x in sorted(res.modified):
-        print("*", x[0], "[{}]".format(x[1]))
+        print("*", x[0].relative_to(path_from), "[{}]".format(x[1]))
     for x in sorted(res.dir2file):
-        print("d", x)
+        print("d", x.relative_to(path_to))
     for x in sorted(res.file2dir):
-        print("f", x)
+        print("f", x.relative_to(path_to))
 
 
 if __name__ == "__main__":
